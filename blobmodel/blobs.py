@@ -27,6 +27,7 @@ class Blob:
         prop_shape_parameters: Union[dict, None] = None,
         perp_shape_parameters: Union[dict, None] = None,
         blob_alignment: bool = True,
+        theta: Union[float, None] = None,
     ) -> None:
         """
         Initialize a single blob.
@@ -60,8 +61,12 @@ class Blob:
         perp_shape_parameters : dict
             Additional shape parameters for the perpendicular direction.
         blob_alignment : bool, optional
-            If blob_aligment == True, the blob shapes are rotated in the propagation direction of the blob
-            If blob_aligment == False, the blob shapes are independent of the propagation direction
+            If blob_alignment == True, the blob shapes are rotated in the propagation direction of the blob
+            If blob_alignment == False, the blob shapes are independent of the propagation direction
+        theta : float
+            Blob rotation. If set to None, it is computed according to blob_alignment. If set to a no None value,
+        the blob alignment flag is ignored. Important: the blob angle is measured with respect to the x axis, not with
+         respect to the velocity vector.
 
         """
         self.int = int
@@ -82,8 +87,12 @@ class Blob:
         self.perp_shape_parameters = (
             {} if perp_shape_parameters is None else perp_shape_parameters
         )
-        self.blob_alignment = blob_alignment
-        self._theta = cmath.phase(self.v_x + self.v_y * 1j) if blob_alignment else 0.0
+        self.blob_alignment = blob_alignment if theta is None else False
+        self._theta = (
+            theta
+            if theta is not None
+            else (cmath.phase(self.v_x + self.v_y * 1j) if blob_alignment else 0.0)
+        )
 
     def discretize_blob(
         self,
@@ -127,6 +136,10 @@ class Blob:
         x_perp, y_perp = self._rotate(
             origin=(self.pos_x, self.pos_y), x=x, y=y, angle=-self._theta
         )
+        if not self.blob_alignment:
+            v_x_new = self.v_x * np.cos(self._theta) + self.v_y * np.sin(self._theta)
+            v_y_new = -self.v_x * np.sin(self._theta) + self.v_y * np.cos(self._theta)
+            self.v_x, self.v_y = v_x_new, v_y_new
         if not periodic_y or one_dimensional:
             return self._single_blob(
                 x_perp, y_perp, t, Ly, periodic_y, one_dimensional=one_dimensional
